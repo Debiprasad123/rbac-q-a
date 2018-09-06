@@ -1,0 +1,258 @@
+For RoleController:
+-----------------------
+1)public Role save(Role role) {
+        // TODO Auto-generated method stub
+        KeyHolder kh = new GeneratedKeyHolder();
+        MapSqlParameterSource source = new MapSqlParameterSource();
+        source.addValue("RN", role.getRoleName());
+        source.addValue("RS", role.getStatus());
+        template.update(QueryRole.INSERT_ROLE, source, kh);
+        role.setRoleId(kh.getKey().intValue());
+        return role;}
+/*Explanation 
+Input:Role object as method parameter.
+mapParams: RN= gets roleName from role object.
+           RS=gets roleStatus from role object.
+query:QueryRole.INSERT_ROLE. This contains two named parameterd =:RN and =:RS
+queryAction: It inserts records to TBL_ROLE table.
+return value: Role.*/
+
+2) public Role updateRoleNameAndStausById(Role role) {
+        // TODO Auto-generated method stub
+        MapSqlParameterSource source = new MapSqlParameterSource();
+        source.addValue("RN", role.getRoleName());
+        source.addValue("RS", role.getStatus());
+        source.addValue("RI", role.getRoleId());
+        template.update(QueryRole.UPDATE_ROLE, source);
+        return findById(role);}
+/*Explanation
+Input : Role Object as method parameter
+mapParams: RN= gets roleName from role object.
+           RS= gets roleStatus from role object.
+		   RI=gets roleId from role object.
+query: QueryRole.UPDATE_ROLE This contains a named parameterd =:RN ,:RS ,:RI .
+queryAction: It updates roleName and roleStatus of TBL_ROLE table by roleId .
+return value: It will return the different roles by id. */
+
+3)public List<Function> getAssignedFunctionsById(Role role) {
+// TODO Auto-generated method stub
+MapSqlParameterSource source=new MapSqlParameterSource();
+source.addValue("RI", role.getRoleId());
+List functions=template.query(QueryRole.GET_ASSIGNED_FUNCTIONS_BY_ID, source, new FunctionRowMapper());
+return functions;
+}
+/* Explanation
+Input : Role Object as method parameter
+mapParams: RI= gets roleId from role object.
+query: QueryRole.GET_ASSIGNED_FUNCTIONS_BY_ID. This contains a named parameterd =:RI
+queryAction: It retrieves records from TBL_FUNCTION table by function id where functionId is the functionId associated with the roleId. That is joining two tables TBL_FUNCTION and and TBL_ROLE_FUNCTION.
+RowMapper: uses FunctionRowMapper which contains logic to retrieve Function from resuletset.
+return value: List*/
+
+4)public List<Function> getNotAssignedFunctionsById(Role role) {
+        // TODO Auto-generated method stub
+        MapSqlParameterSource source = new MapSqlParameterSource();
+        source.addValue("RI", role.getRoleId());
+        List<Function> functions = template.query(QueryRole.GET_NOT_ASSIGNED_FUNCTIONS_BY_ID,
+                source, new FunctionRowMapper());
+        return functions;
+    }
+/*Explanation
+Input : Role Object as method parameter
+mapParams: RI= gets roleId from role object.
+query: QueryRole.GET_NOT_ASSIGNED_FUNCTIONS_BY_ID. This contains a named parameterd =:RI
+queryAction: It retrieves records from TBL_FUNCTION table by function id where functionId is the functionId associated with the roleId. That is joining two tables TBL_FUNCTION and and TBL_ROLE_FUNCTION.
+RowMapper: uses FunctionRowMapper which contains logic to retrieve Function from resuletset.
+return value: List*/
+
+5) public Role assignMoreFunctionsById(Role role) {
+        // TODO Auto-generated method stub
+        List<Function> functions = new ArrayList<Function>(role.getFunctions());
+
+        List<Map<String, Object>> batchValues = new ArrayList<>(functions.size());
+        for (Function f : functions) {
+            batchValues.add(new MapSqlParameterSource("RI", role.getRoleId())
+                    .addValue("FI", f.getFunctionId()).addValue("STATUS", f.getStatus())
+                    .getValues());
+        }
+
+        template.batchUpdate(QueryRole.INSERT_ROLE_FUNCTION,
+                batchValues.toArray(new Map[functions.size()]));
+        return findById(role);
+    }
+/*Explanation
+Input : Role Object as method parameter
+mapParams: FI= gets functionId from role object.
+           RI= gets roleId from role object.
+		   STATUS = get status from role object.
+query:QueryRole.INSERT_ROLE_FUNCTION. This contains a named parameterd =:RI and :FI and :STATUS.
+queryAction: It will  insert  ROLE_ID,FUNCTION_ID,STATUS into TBL_ROLE_FUNCTION table by function id where functionId is the functionId associated with the roleId. That is joining two tables TBL_FUNCTION and and TBL_ROLE_FUNCTION.
+return value: It will return roles by Id.*/
+	
+6)public Role updateAssignedFunctionsStatusById(Role role) {
+        // TODO Auto-generated method stub
+        Map<String, Integer>[] maps = new HashMap[role.getFunctions().size()];
+        int index = 0;
+        for (Function f : role.getFunctions()) {
+            Map<String, Integer> dataMap = new HashMap<>();
+            dataMap.put("RI", role.getRoleId());
+            dataMap.put("FI", f.getFunctionId());
+            dataMap.put("STATUS", f.getStatus());
+            maps[index] = dataMap;
+            index++;
+        }
+        if (maps.length > 0) {
+            int[] batchSize = template.batchUpdate(QueryRole.UPDATE_STATUS_BY_ROLE_ID_FUNCTION_ID,
+                    maps);
+        }
+        return findById(role);
+		
+/*Explanation
+Input : Role Object as method parameter.
+mapParams: RI= gets roleId from role object.
+           FI= gets functionId from role object.
+		   STATUS= gets status from role object.
+query:QueryRole.UPDATE_STATUS_BY_ROLE_ID_FUNCTION_ID. This contains two named parameters =:RI and :FI.
+queryAction: It will  Update status by  ROLE_ID,FUNCTION_ID,of TBL_ROLE_FUNCTION table.
+return value: It will return roles by Id.*/
+
+7)public Role findById(Role role) {
+        // TODO Auto-generated method stub
+        MapSqlParameterSource source = new MapSqlParameterSource();
+        source.addValue("RI", role.getRoleId());
+        role = template.queryForObject(QueryRole.GET_ROLE_BY_ID, source, new RoleRowMapper());
+        role.setFunctions(new HashSet<>(getAssignedFunctionsById(role)));
+        return role;
+		
+/*Explanation
+Input : Role Object as method parameter.
+mapParams: RI= gets roleId from role object.
+query:QueryRole.GET_ROLE_BY_ID. This contains a named parameters =:RI.
+queryAction: It will  retrieve records From TBL_ROLE table by  ROLE_ID.
+return value: It will return role*/
+
+For FunctionController:
+----------------------------
+1)public Function createFunction(Function function) {
+		KeyHolder key = new GeneratedKeyHolder();
+		MapSqlParameterSource paramSource = new MapSqlParameterSource();
+		paramSource.addValue("FN", function.getFunctionName());
+		paramSource.addValue("STATUS", function.getStatus());
+		template.update(QueryFunction.INSERT, paramSource, key);
+		return findById(key.getKey().intValue());
+	}
+/*Explanation
+Input : Function Object as method parameter.
+mapParams: FN= gets functionName from function object.
+        STATUS =gets status from function object.
+query:QueryFunction.INSERT. This contains two named parameters =:FN and :STATUS.
+queryAction: It will  INSERT records INTO TBL_FUNCTION .
+return value: It will return function data .*/
+
+2)public List<Function> findAll() {
+
+		return template.query(QueryFunction.SELECT_ALL, new FunctionRowMapper());
+	}	
+
+	/*Explanation
+Input : Function Object as method parameter.
+query:QueryFunction.SELECT_ALL.
+queryAction: It will  retrieve all records from TBL_FUNCTION .
+return value: List*/.
+
+3)public Function findById(int id) {
+		MapSqlParameterSource paramSource = new MapSqlParameterSource();
+		paramSource.addValue("FI", id);
+		Function function= template.queryForObject(QueryFunction.SELECT_BY_ID, paramSource, new FunctionRowMapper());
+		return function;
+	}
+
+/*Explanation
+Input :int id as method parameter.
+mapParams: FI= gets functionId from function object.
+query:QueryFunction.SELECT_BY_ID. This contains a named parameters =:FI.
+queryAction: It will  Select  records from TBL_FUNCTION .
+return value: It will return function.*/
+
+4)public Function updateFunctionNameById(Function function) {
+		// TODO Auto-generated method stub
+
+		MapSqlParameterSource paramSource = new MapSqlParameterSource();
+		paramSource.addValue("FI", function.getFunctionId());
+		paramSource.addValue("FN", function.getFunctionName());
+		template.update(QueryFunction.UPDATE_FUNCTION_NAME_BY_ID, paramSource);
+		return findById(function.getFunctionId());
+	}		
+	
+/*Explanation
+Input :Function object as method parameter.
+mapParams: FI= gets functionId from function object.
+          FN= gets functionName from function object.
+
+query:QueryFunction.UPDATE_FUNCTION_NAME_BY_ID. This contains two named parameters =:FI and :FN.
+queryAction: It will  update  functionName by functionId in  TBL_FUNCTION .
+return value: It will return function by id.*/
+
+5)	public Function updateFunctionStatus(Function function) {
+		// TODO Auto-generated method stub
+		MapSqlParameterSource paramSource = new MapSqlParameterSource();
+		paramSource.addValue("FI", function.getFunctionId());
+		paramSource.addValue("STATUS", function.getStatus());
+		template.update(QueryFunction.UPDATE_STATUS_BY_ID, paramSource);
+		return findById(function.getFunctionId());
+	}
+
+	/*Explanation
+Input :Function object as method parameter.
+mapParams: FI= gets functionId from function object.
+       STATUS= gets status from function object.
+
+query:QueryFunction.UPDATE_STATUS_BY_ID. This contains two named parameters =:FI and :STATUS.
+queryAction: It will  update  functionStatus by functionId in  TBL_FUNCTION .
+return value: It will return function by id.*/
+
+6) public Function updateFunction(Function function) {
+		// TODO Auto-generated method stub
+		MapSqlParameterSource paramSource = new MapSqlParameterSource();
+		paramSource.addValue("FI", function.getFunctionId());
+		paramSource.addValue("FN", function.getFunctionName());
+		paramSource.addValue("STATUS", function.getStatus());
+		template.update(QueryFunction.UPDATE_FUNCTION_BY_ID, paramSource);
+		return findById(function.getFunctionId());
+	}
+
+		/*Explanation
+Input :Function object as method parameter.
+mapParams: FI= gets functionId from function object.
+           FN= gets functionId from function object
+       STATUS= gets status from function object.
+
+query:QueryFunction.UPDATE_FUNCTION_BY_ID. This contains three named parameters =:FI ,=:FN and :STATUS.
+queryAction: It will  update  function by function id of TBL_FUNCTION.
+return value: It will return function by id.*/
+
+7) public List<Function> updateMultipleFunctionStatus(Map<Integer, Integer> functionIdStatus) {
+		// TODO Auto-generated method stub
+		Map<String, Integer>[] maps = new HashMap[functionIdStatus.size()];
+		int index = 0;
+		for (Map.Entry<Integer, Integer> entry : functionIdStatus.entrySet()) {
+			Map<String, Integer> dataMap = new HashMap<>();
+			dataMap.put("FI", entry.getKey());
+			dataMap.put("STATUS", entry.getValue());
+			maps[index] = dataMap;
+			index++;
+		}
+		if (maps.length > 0) {
+			int[] batchSize = template.batchUpdate(QueryFunction.UPDATE_STATUS_BY_ID, maps);
+		}
+		return findAll();
+	}
+}
+
+/* Explanation
+Input : Map<Integer, Integer> functionIdStatus as method parameter
+mapParams: FI= gets functiionId from function object.
+           STATUS= gets status from function object.
+query: QueryFunction.UPDATE_STATUS_BY_ID. This contains two named parameterd =:RI and :STATUS.
+queryAction: It updates records of TBL_FUNCTION table by function id.
+return value: List*/
